@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Base E-Office - B2B Pipeline Sales Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background-color: #f8fafc;
+        }
+        .bg-base-primary { background-color: #1B6E45; }
+        .text-base-primary { color: #1B6E45; }
+        .border-base-primary { border-color: #1B6E45; }
+        .hover\:bg-base-dark:hover { background-color: #145333; }
+        
+        .pipeline-tab-active {
+            border-bottom: 3px solid #1B6E45;
+            color: #1B6E45;
+            font-weight: 700;
+        }
+        .tab-active {
+            border-bottom: 2px solid #1B6E45;
+            color: #1B6E45;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased">
+
+    <header class="bg-base-primary text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-white p-1.5 rounded text-base-primary font-bold text-xl tracking-wider">base</div>
+                <div>
+                    <h1 class="text-lg font-bold leading-tight">Base E-Office Intelligence</h1>
+                    <p class="text-xs text-green-200">Hệ thống Quản lý Pipeline & Research Khách hàng B2B</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2 bg-emerald-900/40 p-2 rounded-lg border border-emerald-700 w-full sm:w-auto">
+                <label for="apiKeyInput" class="text-xs font-medium shrink-0 text-emerald-200">Gemini Key:</label>
+                <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="bg-white text-gray-900 text-xs rounded px-2 py-1 w-full sm:w-48 focus:outline-none" onchange="saveApiKey()">
+                <button onclick="toggleKeyVisibility()" class="text-xs text-emerald-200 hover:text-white px-1 cursor-pointer">Hiện/Ẩn</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        
+        <div class="flex border-b border-gray-200 mb-6 bg-white rounded-t-xl px-4 shadow-xs">
+            <button onclick="switchViewMode('table')" id="viewMode-table" class="py-3 px-6 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent whitespace-nowrap cursor-pointer transition-all">🗂 Danh sách bộ lọc</button>
+            <button onclick="switchViewMode('pipeline')" id="viewMode-pipeline" class="py-3 px-6 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent whitespace-nowrap cursor-pointer transition-all">📊 Pipeline Trực Quan (Kanban)</button>
+        </div>
+
+        <div id="filterSection" class="bg-white p-4 rounded-xl shadow-xs border border-gray-100 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <div class="relative flex-1 min-w-[240px]">
+                    <input type="text" id="searchBar" placeholder="Tìm tên công ty, ngành nghề..." class="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-base-primary" oninput="renderAllViews()">
+                </div>
+                <select id="filterPotential" class="border border-gray-300 rounded-lg text-sm p-2 focus:outline-none focus:border-base-primary cursor-pointer" onchange="renderAllViews()">
+                    <option value="">-- Mức độ tiềm năng --</option>
+                    <option value="Đáng theo đuổi">Đáng theo đuổi</option>
+                    <option value="Cân nhắc">Cân nhắc</option>
+                    <option value="Thấp">Thấp</option>
+                    <option value="Loại">Loại</option>
+                </select>
+                <select id="filterStatus" class="border border-gray-300 rounded-lg text-sm p-2 focus:outline-none focus:border-base-primary cursor-pointer" onchange="renderAllViews()">
+                    <option value="">-- Trạng thái theo dõi --</option>
+                    <option value="Mới research">Mới research</option>
+                    <option value="Đang tiếp cận">Đang tiếp cận</option>
+                    <option value="Đã liên hệ">Đã liên hệ</option>
+                    <option value="Đáng theo đuổi">Đáng theo đuổi</option>
+                    <option value="Loại">Loại</option>
+                </select>
+            </div>
+            <button onclick="openResearchModal()" class="w-full md:w-auto bg-base-primary text-white font-medium text-sm px-4 py-2.5 rounded-lg hover:bg-base-dark flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs shrink-0">
+                <span>+ Research đối tượng mới</span>
+            </button>
+        </div>
+
+        <div id="tableViewBox" class="bg-white rounded-xl shadow-xs border border-gray-100 overflow-hidden hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-500 text-xs font-semibold uppercase tracking-wider border-b border-gray-200">
+                            <th class="px-6 py-3.5">Doanh nghiệp</th>
+                            <th class="px-6 py-3.5">Ngành nghề chính</th>
+                            <th class="px-6 py-3.5">Phán quyết tiềm năng</th>
+                            <th class="px-6 py-3.5">Trạng thái Pipeline</th>
+                            <th class="px-6 py-3.5 text-right">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="companyTableBody" class="divide-y divide-gray-100 text-sm"></tbody>
+                </table>
+            </div>
+            <div id="emptyState" class="hidden p-12 text-center text-gray-400 text-sm">
+                Không tìm thấy kết quả phù hợp nào. Nhấp nút Thêm mới để phân tích!
+            </div>
+        </div>
+
+        <div id="pipelineViewBox" class="grid grid-cols-1 md:grid-cols-5 gap-4 overflow-x-auto pb-4 hidden items-start">
+            
+            <div class="bg-slate-100 rounded-xl p-3 border border-slate-200/60 min-w-[220px]">
+                <div class="flex justify-between items-center mb-3 px-1">
+                    <span class="font-bold text-xs text-slate-700 uppercase tracking-wide">Mới research</span>
+                    <span id="count-new" class="bg-slate-200 text-slate-700 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="col-new" class="space-y-3 min-h-[400px]"></div>
+            </div>
+
+            <div class="bg-blue-50/50 rounded-xl p-3 border border-blue-100 min-w-[220px]">
+                <div class="flex justify-between items-center mb-3 px-1">
+                    <span class="font-bold text-xs text-blue-800 uppercase tracking-wide">Đang tiếp cận</span>
+                    <span id="count-progress" class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="col-progress" class="space-y-3 min-h-[400px]"></div>
+            </div>
+
+            <div class="bg-purple-50/50 rounded-xl p-3 border border-purple-100 min-w-[220px]">
+                <div class="flex justify-between items-center mb-3 px-1">
+                    <span class="font-bold text-xs text-purple-800 uppercase tracking-wide">Đã liên hệ</span>
+                    <span id="count-contacted" class="bg-purple-100 text-purple-800 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="col-contacted" class="space-y-3 min-h-[400px]"></div>
+            </div>
+
+            <div class="bg-emerald-50/40 rounded-xl p-3 border border-emerald-100 min-w-[220px]">
+                <div class="flex justify-between items-center mb-3 px-1">
+                    <span class="font-bold text-xs text-emerald-800 uppercase tracking-wide">Tiềm năng</span>
+                    <span id="count-qualified" class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="col-qualified" class="space-y-3 min-h-[400px]"></div>
+            </div>
+
+            <div class="bg-red-50/30 rounded-xl p-3 border border-red-100 min-w-[220px]">
+                <div class="flex justify-between items-center mb-3 px-1">
+                    <span class="font-bold text-xs text-red-700 uppercase tracking-wide">Bỏ qua</span>
+                    <span id="count-disqualified" class="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
+                <div id="col-disqualified" class="space-y-3 min-h-[400px]"></div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <div id="researchModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl relative">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Research Đối Tượng Khách Hàng Mới</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Tên công ty doanh nghiệp <span class="text-red-500">*</span></label>
+                    <input type="text" id="inputCompName" placeholder="Ví dụ: Tập đoàn Hòa Phát, Đại lý Ford,..." class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:border-base-primary text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Mã số thuế (Để AI tìm báo cáo chuẩn nhất)</label>
+                    <input type="text" id="inputCompTax" placeholder="Ví dụ: 0101532432" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:border-base-primary text-sm">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="closeResearchModal()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md cursor-pointer">Hủy</button>
+                <button onclick="startResearch()" class="px-4 py-2 text-sm bg-base-primary text-white font-medium rounded-md hover:bg-base-dark cursor-pointer">Bắt đầu Phân Tích</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingModal" class="fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center hidden p-4 text-white">
+        <div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
+        <h3 class="text-lg font-bold" id="loadingTitle">Gemini AI đang tìm kiếm thời gian thực...</h3>
+        <p class="text-xs text-gray-300 mt-2 max-w-sm text-center">Hệ thống kích hoạt Google Search quét cổng dữ liệu doanh nghiệp, tin tức tuyển dụng để tính toán độ phù hợp phần mềm Base E-Office.</p>
+    </div>
+
+    <div id="detailModal" class="fixed inset-0 bg-black/50 z-50 flex justify-end hidden">
+        <div class="bg-white w-full max-w-4xl h-full flex flex-col shadow-2xl overflow-hidden relative">
+            
+            <div class="p-4 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h2 id="detailCompName" class="text-xl font-bold text-gray-900">Tên Công Ty</h2>
+                        <span id="detailCompTax" class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono">MST</span>
+                    </div>
+                    <p id="detailCompIndustry" class="text-xs text-gray-500 mt-0.5">Ngành nghề</p>
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <div class="flex items-center gap-1.5 text-xs">
+                        <span class="font-medium text-gray-600">Trạng thái Pipeline:</span>
+                        <select id="detailStatusSelect" class="border border-gray-300 rounded p-1 text-xs bg-white cursor-pointer" onchange="updateCurrentCompanyStatus(this.value)">
+                            <option value="Mới research">Mới research</option>
+                            <option value="Đang tiếp cận">Đang tiếp cận</option>
+                            <option value="Đã liên hệ">Đã liên hệ</option>
+                            <option value="Đáng theo đuổi">Tiềm năng</option>
+                            <option value="Loại">Bỏ qua</option>
+                        </select>
+                    </div>
+                    <button id="saveBtn" onclick="saveCurrentCompany()" class="bg-base-primary text-white text-xs font-semibold px-3 py-1.5 rounded hover:bg-base-dark cursor-pointer">Lưu thông tin</button>
+                    <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 p-1.5 text-2xl font-bold cursor-pointer">&times;</button>
+                </div>
+            </div>
+
+            <div class="flex border-b border-gray-200 bg-white px-4 overflow-x-auto text-xs sm:text-sm shrink-0">
+                <button onclick="switchTab('overview')" id="tab-overview" class="py-3 px-4 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent focus:outline-none whitespace-nowrap cursor-pointer">Tổng quan & Khớp nối</button>
+                <button onclick="switchTab('legal')" id="tab-legal" class="py-3 px-4 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent focus:outline-none whitespace-nowrap cursor-pointer">Pháp lý & Quy mô</button>
+                <button onclick="switchTab('signals')" id="tab-signals" class="py-3 px-4 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent focus:outline-none whitespace-nowrap cursor-pointer">Tín hiệu & Công nghệ</button>
+                <button onclick="switchTab('contacts')" id="tab-contacts" class="py-3 px-4 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent focus:outline-none whitespace-nowrap cursor-pointer">Thông tin Liên hệ</button>
+                <button onclick="switchTab('notes')" id="tab-notes" class="py-3 px-4 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent focus:outline-none whitespace-nowrap cursor-pointer">Ghi chú & To-Do Lịch hẹn</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6 bg-gray-50/50 space-y-6 text-sm" id="tabContentBox">
+                
+                <div id="pane-overview" class="tab-pane space-y-6">
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-2">Mô tả tóm tắt hoạt động cốt lõi</h4>
+                        <p id="view-tom_tat" class="text-gray-600 leading-relaxed"></p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs flex flex-col justify-between">
+                            <div>
+                                <h4 class="font-bold text-gray-900 mb-1">Mức độ tiềm năng E-Office</h4>
+                                <div id="view-tiem_nang_badge" class="my-2"></div>
+                            </div>
+                            <p id="view-ly_do_tiem_nang" class="text-gray-600 text-xs mt-1"></p>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border border-red-100 bg-red-50/10 shadow-xs">
+                            <h4 class="font-bold text-red-800 mb-1 flex items-center gap-1">⚠ Cờ đỏ cảnh báo rủi ro</h4>
+                            <p id="view-co_do" class="text-gray-600 text-xs mt-1"></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-3">Kịch bản/Góc tiếp cận đề xuất cho Sales</h4>
+                        <div id="view-goc_tiep_can" class="space-y-2"></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                            <h4 class="font-bold text-gray-900 mb-1">Persona đích (Người có quyền quyết định)</h4>
+                            <p id="view-nguoi_tiep_can" class="text-gray-600 text-xs"></p>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                            <h4 class="font-bold text-gray-900 mb-1">Hành động tiếp theo khuyến nghị</h4>
+                            <p id="view-hanh_dong_tiep" class="text-gray-600 text-xs"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="pane-legal" class="tab-pane space-y-4 hidden">
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
+                        <table class="w-full text-left divide-y divide-gray-100">
+                            <tbody class="divide-y divide-gray-100">
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500 w-1/3">Địa chỉ trụ sở chính</td><td class="px-4 py-3" id="view-dia_chi"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Đại diện pháp luật</td><td class="px-4 py-3" id="view-dai_dien"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Ngành nghề chi tiết</td><td class="px-4 py-3" id="view-nganh_nghe"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Loại hình tổ chức</td><td class="px-4 py-3" id="view-loai_hinh"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Ngày bắt đầu hoạt động</td><td class="px-4 py-3" id="view-ngay_thanh_lap"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Vốn điều lệ công bố</td><td class="px-4 py-3" id="view-von_dieu_le"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Trạng thái mã số thuế</td><td class="px-4 py-3" id="view-tinh_trang"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Quy mô nhân sự ước lượng</td><td class="px-4 py-3" id="view-nhan_su"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Văn phòng đại diện/Chi nhánh</td><td class="px-4 py-3" id="view-chi_nhanh"></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="pane-signals" class="tab-pane space-y-4 hidden">
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-2">Dấu hiệu & Nhu cầu Tuyển dụng</h4>
+                        <div id="view-tuyen_dung"></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-2">Biến động tin tức/Truyền thông gần nhất</h4>
+                        <div id="view-tin_tuc"></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-2">Các phần mềm/Công nghệ đang áp dụng ngầm</h4>
+                        <div id="view-phan_mem"></div>
+                    </div>
+                </div>
+
+                <div id="pane-contacts" class="tab-pane space-y-4 hidden">
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
+                        <table class="w-full text-left divide-y divide-gray-100">
+                            <tbody>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500 w-1/3">Hội đồng quản trị/Lãnh đạo</td><td class="px-4 py-3" id="view-ban_lanh_dao"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Email tổng đài/Phòng ban</td><td class="px-4 py-3" id="view-email"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Số điện thoại liên hệ</td><td class="px-4 py-3" id="view-hotline"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Trang chủ URL</td><td class="px-4 py-3" id="view-website"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Facebook/LinkedIn Doanh nghiệp</td><td class="px-4 py-3" id="view-mxh"></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="pane-notes" class="tab-pane space-y-4 hidden">
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <label class="block font-bold text-gray-900 mb-2">Nhật ký làm việc của Sales</label>
+                        <textarea id="localNotes" rows="4" placeholder="Ghi nhận phản hồi thực tế khi gọi điện, đặt lịch hẹn Demo Base..." class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-base-primary" oninput="updateLocalNotes(this.value)"></textarea>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-3">Nhiệm vụ cần làm (To-Do List)</h4>
+                        <div class="flex gap-2 mb-4">
+                            <input type="text" id="newTodoTask" placeholder="Nội dung công việc (ví dụ: Gửi email báo giá, gọi lại)..." class="flex-1 p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-base-primary">
+                            <input type="date" id="newTodoDate" class="p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-base-primary">
+                            <button onclick="addTodoItem()" class="bg-base-primary text-white text-xs font-semibold px-4 py-2 rounded-md hover:bg-base-dark cursor-pointer">Thêm</button>
+                        </div>
+                        <ul id="todoList" class="divide-y divide-gray-100 space-y-2"></ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let savedCompanies = [];
+        let viewMode = 'pipeline'; // Mặc định mở view Pipeline trực quan cho mượt
+        let currentEditingCompany = null;
+
+        try {
+            savedCompanies = JSON.parse(localStorage.getItem('base_market_intel_companies')) || [];
+        } catch(e) {
+            savedCompanies = [];
+        }
+
+        window.onload = function() {
+            const savedKey = localStorage.getItem('base_gemini_api_key');
+            if (savedKey) {
+                document.getElementById('apiKeyInput').value = savedKey;
+            }
+            const savedView = localStorage.getItem('base_intel_view_mode');
+            if (savedView) viewMode = savedView;
+            
+            renderAllViews();
+        };
+
+        function saveApiKey() {
+            const val = document.getElementById('apiKeyInput').value.trim();
+            localStorage.setItem('base_gemini_api_key', val);
+        }
+        function toggleKeyVisibility() {
+            const input = document.getElementById('apiKeyInput');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function switchViewMode(mode) {
+            viewMode = mode;
+            localStorage.setItem('base_intel_view_mode', mode);
+            renderAllViews();
+        }
+
+        function openResearchModal() {
+            document.getElementById('inputCompName').value = '';
+            document.getElementById('inputCompTax').value = '';
+            document.getElementById('researchModal').classList.remove('hidden');
+        }
+        function closeResearchModal() {
+            document.getElementById('researchModal').classList.add('hidden');
+        }
+
+        async function startResearch() {
+            const apiKey = localStorage.getItem('base_gemini_api_key');
+            if (!apiKey) {
+                alert('Vui lòng cài đặt API Key Gemini ở góc trên bên phải trước khi phân tích!');
+                return;
+            }
+
+            const compName = document.getElementById('inputCompName').value.trim();
+            const compTax = document.getElementById('inputCompTax').value.trim();
+
+            if (!compName) {
+                alert('Tên doanh nghiệp là bắt buộc!');
+                return;
+            }
+
+            closeResearchModal();
+            showLoading(true, `Gemini đang phân tích và tìm dữ liệu thực tế cho: ${compName}...`);
+
+            const prompt = `Bạn là AI hỗ trợ phân tích thị trường B2B cho phần mềm Quản lý Văn phòng điện tử Base E-Office (gồm quản lý công việc Wework, quy trình Base Service, công văn Office, mạng nội bộ Inside, quản lý tài nguyên Booking).
+            Hãy sử dụng tính năng Google Search tra cứu dữ liệu thật về công ty: ${compName} ${compTax ? 'có Mã số thuế: ' + compTax : ''}.
+            Trả về thông tin chính xác theo mẫu JSON. Không tự bịa thông tin nếu không có dữ liệu nguồn thật.`;
+
+            const jsonSchema = {
+                type: "OBJECT",
+                properties: {
+                    ten_cong_ty: { type: "STRING" },
+                    ma_so_thue: { type: "STRING" },
+                    ngganh_nghe_chinh: { type: "STRING" },
+                    tom_tat: { type: "STRING" },
+                    muc_do_tiem_nang: { type: "STRING", enum: ["Đáng theo đuổi", "Cân nhắc", "Thấp", "Loại"] },
+                    ly_do_tiem_nang: { type: "STRING" },
+                    co_do: { type: "STRING" },
+                    goc_tiep_can: { type: "ARRAY", items: { type: "STRING" } },
+                    nguoi_nen_tiep_can: { type: "STRING" },
+                    hanh_dong_tiep_theo: { type: "STRING" },
+                    phap_ly_quy_mo: {
+                        type: "OBJECT",
+                        properties: {
+                            dia_chi: { type: "STRING" },
+                            dai_dien_phap_luat: { type: "STRING" },
+                            loai_hinh_doanh_nghiep: { type: "STRING" },
+                            ngay_thanh_lap: { type: "STRING" },
+                            von_dieu_le: { type: "STRING" },
+                            tinh_trang_hoat_dong: { type: "STRING" },
+                            uoc_tinh_nhan_su: { type: "STRING" },
+                            so_chi_nhanh_van_phong: { type: "STRING" },
+                            nguon_kiem_chung: { type: "STRING" }
+                        }
+                    },
+                    tin_hieu_cong_nghe: {
+                        type: "OBJECT",
+                        properties: {
+                            tuyen_dung: { type: "STRING" },
+                            tin_tuc_gan_day: { type: "STRING" },
+                            phan_mem_dang_dung: { type: "STRING" },
+                            nguon_kiem_chung: { type: "STRING" }
+                        }
+                    },
+                    lien_he: {
+                        type: "OBJECT",
+                        properties: {
+                            ban_lanh_dao: { type: "STRING" },
+                            email_to_chuc: { type: "STRING" },
+                            hotline: { type: "STRING" },
+                            website: { type: "STRING" },
+                            mang_xa_hoi: { type: "STRING" },
+                            nguon_kiem_chung: { type: "STRING" }
+                        }
+                    }
+                },
+                required: ["ten_cong_ty", "ma_so_thue", "muc_do_tiem_nang", "phap_ly_quy_mo", "tin_hieu_cong_nghe", "lien_he"]
+            };
+
+            try {
+                // ĐÃ SỬA: Sửa lại đường dẫn API chuẩn 2.5-flash không bị lỗi 404
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        tools: [{ google_search: {} }],
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: jsonSchema
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Cổng kết nối Google báo lỗi: ${response.status}. Hãy kiểm tra API Key.`);
+                }
+
+                const resData = await response.json();
+                const rawJsonText = resData?.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (!rawJsonText) {
+                    throw new Error("Không lấy được dữ liệu cấu trúc sạch từ AI.");
+                }
+
+                const parsed = JSON.parse(rawJsonText);
+
+                const adapterObj = {
+                    ten_cong_ty: parsed.ten_cong_ty || compName,
+                    ma_so_thue: parsed.ma_so_thue || compTax || "Chưa rõ",
+                    nganh_nghe_chinh: parsed.ngganh_nghe_chinh || parsed.nganh_nghe_chinh || "Chưa cập nhật",
+                    tom_tat: parsed.tom_tat || "Không có tóm tắt.",
+                    muc_do_tiem_nang: parsed.muc_do_tiem_nang || "Cân nhắc",
+                    ly_do_tiem_nang: parsed.ly_do_tiem_nang || "",
+                    co_do: parsed.co_do || "Không phát hiện rủi ro.",
+                    goc_tiep_can: parsed.goc_tiep_can || [],
+                    nguoi_nen_tiep_can: parsed.nguoi_nen_tiep_can || "Chưa rõ",
+                    hanh_dong_tiep_theo: parsed.hanh_dong_tiep_theo || "Lên lịch tiếp cận đầu tiên",
+                    phap_ly_quy_mo: {
+                        dia_chi: { gia_tri: parsed.phap_ly_quy_mo?.dia_chi, do_tin: "Cao", nguon: parsed.phap_ly_quy_mo?.nguon_kiem_chung },
+                        dai_dien_phap_luat: { gia_tri: parsed.phap_ly_quy_mo?.dai_dien_phap_luat, do_tin: "Cao", nguon: parsed.phap_ly_quy_mo?.nguon_kiem_chung },
+                        loai_hinh_doanh_nghiep: { gia_tri: parsed.phap_ly_quy_mo?.loai_hinh_doanh_nghiep, do_tin: "Cao", nguon: parsed.phap_ly_quy_mo?.nguon_kiem_chung },
+                        ngay_thanh_lap: { gia_tri: parsed.phap_ly_quy_mo?.ngay_thanh_lap, do_tin: "Cao", nguon: parsed.phap_ly_quy_mo?.nguon_kiem_chung },
+                        von_dieu_le: { gia_tri: parsed.phap_ly_quy_mo?.von_dieu_le, do_tin: "Cao", nguon: parsed.phap_ly_quy_mo?.nguon_kiem_chung },
+                        tinh_trang_hoat_dong: { gia_tri: parsed.phap_ly_quy_mo?.tinh_trang_hoat_dong, do_tin: "Cao", nguon: parsed.phap_ly_quy_mo?.nguon_kiem_chung },
+                        uoc_tinh_nhan_su: { gia_tri: parsed.phap_ly_quy_mo?.uoc_tinh_nhan_su, do_tin: "Cao", nguon: parsed.phap_ly_quy_mo?.nguon_kiem_chung },
+                        so_chi_nhanh_van_phong: { gia_tri: parsed.phap_ly_quy_mo?.so_chi_nhanh_van_phong, do_tin: "Cao", nguon: parsed.phap_ly_quy_mo?.nguon_kiem_chung }
+                    },
+                    tin_hieu_cong_nghe: {
+                        tuyen_dung: { gia_tri: parsed.tin_hieu_cong_nghe?.tuyen_dung, do_tin: "Cao", nguon: parsed.tin_hieu_cong_nghe?.nguon_kiem_chung },
+                        tin_tuc_gan_day: { gia_tri: parsed.tin_hieu_cong_nghe?.tin_tuc_gan_day, do_tin: "Cao", nguon: parsed.tin_hieu_cong_nghe?.nguon_kiem_chung },
+                        phan_mem_dang_dung: { gia_tri: parsed.tin_hieu_cong_nghe?.phan_mem_dang_dung, do_tin: "Cao", nguon: parsed.tin_hieu_cong_nghe?.nguon_kiem_chung }
+                    },
+                    lien_he: {
+                        ban_lanh_dao: { gia_tri: parsed.lien_he?.ban_lanh_dao, do_tin: "Cao", nguon: parsed.lien_he?.nguon_kiem_chung },
+                        email_to_chuc: { gia_tri: parsed.lien_he?.email_to_chuc, do_tin: "Trung bình", nguon: parsed.lien_he?.nguon_kiem_chung },
+                        hotline: { gia_tri: parsed.lien_he?.hotline, do_tin: "Cao", nguon: parsed.lien_he?.nguon_kiem_chung },
+                        website: { gia_tri: parsed.lien_he?.website, do_tin: "Cao", nguon: parsed.lien_he?.nguon_kiem_chung },
+                        mang_xa_hoi: { gia_tri: parsed.lien_he?.mang_xa_hoi, do_tin: "Cao", nguon: parsed.lien_he?.nguon_kiem_chung }
+                    }
+                };
+
+                currentEditingCompany = {
+                    id: 'comp_' + Date.now(),
+                    trang_thai_theo_doi: "Mới research",
+                    ghi_chu_sales: "",
+                    todo_list: [],
+                    ai_data: adapterObj
+                };
+
+                showLoading(false);
+                openDetailModal(currentEditingCompany, true);
+
+            } catch (err) {
+                showLoading(false);
+                alert("Không thể kết nối hoặc xảy ra lỗi phân tích:\n" + err.message);
+            }
+        }
+
+        function showLoading(status, msg = "") {
+            const modal = document.getElementById('loadingModal');
+            if (status) {
+                document.getElementById('loadingTitle').innerText = msg;
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.remove('tab-active'));
+            
+            const targetPane = document.getElementById(`pane-${tabId}`);
+            const targetTab = document.getElementById(`tab-${tabId}`);
+            
+            if(targetPane) targetPane.classList.remove('hidden');
+            if(targetTab) targetTab.classList.add('tab-active');
+        }
+
+        // ĐỐI PHÓ LỖI 404 VÀ UNDEFINED DỮ LIỆU CŨ: Fallback thông minh bằng Optional Chaining
+        function formatField(obj) {
+            if (!obj || !obj.gia_tri || obj.gia_tri === "khong_tim_thay" || obj.gia_tri === "Không tìm thấy" || obj.gia_tri === "...") {
+                return `<span class="text-gray-400 italic">Không tìm thấy dữ liệu nguồn</span>`;
+            }
+            
+            let bColor = "bg-gray-100 text-gray-600";
+            if (obj.do_tin === "Cao") bColor = "bg-green-100 text-green-700";
+            if (obj.do_tin === "Trung bình") bColor = "bg-amber-100 text-amber-700";
+
+            let srcHtml = "";
+            let lNguon = obj.nguon || obj.nguồn;
+            if (lNguon && lNguon.trim() !== "" && lNguon !== "...") {
+                srcHtml = `<a href="${lNguon}" target="_blank" class="ml-2 text-xs text-blue-600 hover:underline">🔗 xem nguồn</a>`;
+            }
+
+            return `
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span class="text-gray-800 font-medium">${obj.gia_tri}</span>
+                    <div class="flex items-center gap-1.5 shrink-0 text-[10px]">
+                        <span class="px-1.5 py-0.5 rounded ${bColor}">Độ tin cậy: ${obj.do_tin || 'Thấp'}</span>
+                        ${srcHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        function openDetailModal(companyObj, isNew = false) {
+            currentEditingCompany = JSON.parse(JSON.stringify(companyObj));
+            // Đã bọc dữ liệu an toàn để không bao giờ bị lỗi 'Cannot read properties of undefined'
+            const data = currentEditingCompany.ai_data || {};
+
+            document.getElementById('detailCompName').innerText = data.ten_cong_ty || "Không rõ tên";
+            document.getElementById('detailCompTax').innerText = `MST: ${data.ma_so_thue || 'N/A'}`;
+            document.getElementById('detailCompIndustry').innerText = `Ngành chính: ${data.nganh_nghe_chinh || 'Chưa phân loại'}`;
+            document.getElementById('detailStatusSelect').value = currentEditingCompany.trang_thai_theo_doi;
+
+            const saveBtn = document.getElementById('saveBtn');
+            if (isNew) {
+                saveBtn.innerText = "Lưu vào Pipeline";
+                saveBtn.className = "bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded hover:bg-amber-700 cursor-pointer";
+            } else {
+                saveBtn.innerText = "Cập nhật thay đổi";
+                saveBtn.className = "bg-base-primary text-white text-xs font-semibold px-3 py-1.5 rounded hover:bg-base-dark cursor-pointer";
+            }
+
+            document.getElementById('view-tom_tat').innerText = data.tom_tat || "Không có tóm tắt dữ liệu.";
+            
+            const pot = data.muc_do_tiem_nang;
+            let pColor = "bg-gray-100 text-gray-700";
+            if (pot === "Đáng theo đuổi") pColor = "bg-emerald-600 text-white font-bold";
+            if (pot === "Cân nhắc") pColor = "bg-blue-600 text-white";
+            if (pot === "Loại") pColor = "bg-red-600 text-white";
+            document.getElementById('view-tiem_nang_badge').innerHTML = `<span class="px-2.5 py-1 rounded text-xs ${pColor}">${pot || 'Chưa rõ'}</span>`;
+            document.getElementById('view-ly_do_tiem_nang').innerText = data.ly_do_tiem_nang || "";
+            document.getElementById('view-co_do').innerText = data.co_do || "Bình thường";
+
+            const gBox = document.getElementById('view-goc_tiep_can');
+            gBox.innerHTML = '';
+            if (Array.isArray(data.goc_tiep_can) && data.goc_tiep_can.length > 0) {
+                data.goc_tiep_can.forEach(g => {
+                    const d = document.createElement('div');
+                    d.className = "p-2 bg-slate-50 rounded border-l-4 border-emerald-600 text-xs";
+                    d.innerText = g;
+                    gBox.appendChild(d);
+                });
+            } else {
+                gBox.innerHTML = `<span class="text-gray-400 italic">Không có kịch bản mẫu.</span>`;
+            }
+
+            document.getElementById('view-nguoi_tiep_can').innerText = data.nguoi_nen_tiep_can || "Chưa xác định";
+            document.getElementById('view-hanh_dong_tiep').innerText = data.hanh_dong_tiep_theo || "Chưa lập";
+
+            // AN TOÀN TUYỆT ĐỐI BẰNG OPTIONAL CHAINING TRÁNH LỖI 'dia_chi'
+            document.getElementById('view-dia_chi').innerHTML = formatField(data.phap_ly_quy_mo?.dia_chi);
+            document.getElementById('view-dai_dien').innerHTML = formatField(data.phap_ly_quy_mo?.dai_dien_phap_luat);
+            document.getElementById('view-nganh_nghe').innerHTML = formatField({gia_tri: data.nganh_nghe_chinh, do_tin: "Cao"});
+            document.getElementById('view-loai_hinh').innerHTML = formatField(data.phap_ly_quy_mo?.loai_hinh_doanh_nghiep);
+            document.getElementById('view-ngay_thanh_lap').innerHTML = formatField(data.phap_ly_quy_mo?.ngay_thanh_lap);
+            document.getElementById('view-von_dieu_le').innerHTML = formatField(data.phap_ly_quy_mo?.von_dieu_le);
+            document.getElementById('view-tinh_trang').innerHTML = formatField(data.phap_ly_quy_mo?.tinh_trang_hoat_dong);
+            document.getElementById('view-nhan_su').innerHTML = formatField(data.phap_ly_quy_mo?.uoc_tinh_nhan_su);
+            document.getElementById('view-chi_nhanh').innerHTML = formatField(data.phap_ly_quy_mo?.so_chi_nhanh_van_phong);
+
+            document.getElementById('view-tuyen_dung').innerHTML = formatField(data.tin_hieu_cong_nghe?.tuyen_dung);
+            document.getElementById('view-tin_tuc').innerHTML = formatField(data.tin_hieu_cong_nghe?.tin_tuc_gan_day);
+            document.getElementById('view-phan_mem').innerHTML = formatField(data.tin_hieu_cong_nghe?.phan_mem_dang_dung);
+
+            document.getElementById('view-ban_lanh_dao').innerHTML = formatField(data.lien_he?.ban_lanh_dao);
+            document.getElementById('view-email').innerHTML = formatField(data.lien_he?.email_to_chuc);
+            document.getElementById('view-hotline').innerHTML = formatField(data.lien_he?.hotline);
+            document.getElementById('view-website').innerHTML = formatField(data.lien_he?.website);
+            document.getElementById('view-mxh').innerHTML = formatField(data.lien_he?.mang_xa_hoi);
+
+            document.getElementById('localNotes').value = currentEditingCompany.ghi_chu_sales || "";
+            renderTodoList();
+
+            switchTab('overview');
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+            currentEditingCompany = null;
+        }
+
+        function saveCurrentCompany() {
+            if (!currentEditingCompany) return;
+            const targetIdx = savedCompanies.findIndex(c => c.id === currentEditingCompany.id);
+            if (targetIdx > -1) {
+                savedCompanies[targetIdx] = currentEditingCompany;
+            } else {
+                savedCompanies.unshift(currentEditingCompany);
+            }
+            localStorage.setItem('base_market_intel_companies', JSON.stringify(savedCompanies));
+            renderAllViews();
+            closeDetailModal();
+        }
+
+        function updateCurrentCompanyStatus(statusVal) {
+            if (currentEditingCompany) {
+                currentEditingCompany.trang_thai_theo_doi = statusVal;
+            }
+        }
+
+        function updateLocalNotes(txt) {
+            if (currentEditingCompany) {
+                currentEditingCompany.ghi_chu_sales = txt;
+            }
+        }
+
+        function renderTodoList() {
+            const container = document.getElementById('todoList');
+            container.innerHTML = '';
+            if (!currentEditingCompany.todo_list) currentEditingCompany.todo_list = [];
+
+            if (currentEditingCompany.todo_list.length === 0) {
+                container.innerHTML = `<li class="text-gray-400 italic text-xs py-1">Chưa có đầu việc nào.</li>`;
+                return;
+            }
+
+            currentEditingCompany.todo_list.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.className = "flex justify-between items-center bg-gray-50 p-2 rounded text-xs";
+                li.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggleTodoStatus(${index})" class="rounded text-base-primary cursor-pointer">
+                        <span class="${item.done ? 'line-through text-gray-400' : 'text-gray-700'}">${item.task}</span>
+                        ${item.date ? `<span class="text-[10px] text-gray-400 bg-gray-200 px-1 rounded">📅 ${item.date}</span>` : ''}
+                    </div>
+                    <button onclick="deleteTodoItem(${index})" class="text-red-500 font-bold">&times;</button>
+                `;
+                container.appendChild(li);
+            });
+        }
+
+        function addTodoItem() {
+            const tInp = document.getElementById('newTodoTask');
+            const dInp = document.getElementById('newTodoDate');
+            if (!tInp.value.trim()) return;
+
+            currentEditingCompany.todo_list.push({
+                task: tInp.value.trim(),
+                date: dInp.value,
+                done: false
+            });
+            tInp.value = '';
+            dInp.value = '';
+            renderTodoList();
+        }
+
+        function toggleTodoStatus(idx) {
+            currentEditingCompany.todo_list[idx].done = !currentEditingCompany.todo_list[idx].done;
+            renderTodoList();
+        }
+
+        function deleteTodoItem(idx) {
+            currentEditingCompany.todo_list.splice(idx, 1);
+            renderTodoList();
+        }
+
+        function deleteCompany(id, event) {
+            event.stopPropagation();
+            if (confirm("Xóa dữ liệu doanh nghiệp này khỏi pipeline?")) {
+                savedCompanies = savedCompanies.filter(c => c.id !== id);
+                localStorage.setItem('base_market_intel_companies', JSON.stringify(savedCompanies));
+                renderAllViews();
+            }
+        }
+
+        // LÀM MỚI TOÀN BỘ GIAO DIỆN (ĐỒNG BỘ DANH SÁCH & PIPELINE)
+        function renderAllViews() {
+            const sBar = document.getElementById('searchBar');
+            const sVal = sBar ? sBar.value.toLowerCase().trim() : "";
+            const pF = document.getElementById('filterPotential') ? document.getElementById('filterPotential').value : "";
+            const sF = document.getElementById('filterStatus') ? document.getElementById('filterStatus').value : "";
+
+            const filtered = savedCompanies.filter(c => {
+                const nM = c.ai_data?.ten_cong_ty?.toLowerCase().includes(sVal);
+                const iM = c.ai_data?.nganh_nghe_chinh?.toLowerCase().includes(sVal);
+                const matchS = nM || iM || sVal === "";
+                const matchP = pF === "" || c.ai_data?.muc_do_tiem_nang === pF;
+                const matchSt = sF === "" || c.trang_thai_theo_doi === sF;
+                return matchS && matchP && matchSt;
+            });
+
+            // Toggle Tabs
+            if (viewMode === 'table') {
+                document.getElementById('viewMode-table').className = "py-3 px-6 pipeline-tab-active cursor-pointer";
+                document.getElementById('viewMode-pipeline').className = "py-3 px-6 text-gray-500 font-medium cursor-pointer";
+                document.getElementById('tableViewBox').classList.remove('hidden');
+                document.getElementById('pipelineViewBox').classList.add('hidden');
+                renderTableMode(filtered);
+            } else {
+                document.getElementById('viewMode-pipeline').className = "py-3 px-6 pipeline-tab-active cursor-pointer";
+                document.getElementById('viewMode-table').className = "py-3 px-6 text-gray-500 font-medium cursor-pointer";
+                document.getElementById('pipelineViewBox').classList.remove('hidden');
+                document.getElementById('tableViewBox').classList.add('hidden');
+                renderPipelineMode(filtered);
+            }
+        }
+
+        function renderTableMode(items) {
+            const tbody = document.getElementById('companyTableBody');
+            const empty = document.getElementById('emptyState');
+            tbody.innerHTML = '';
+
+            if (items.length === 0) {
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+
+            items.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 cursor-pointer";
+                tr.onclick = () => openDetailModal(c, false);
+
+                const pot = c.ai_data?.muc_do_tiem_nang;
+                let potBadge = `<span class="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full font-medium">Cân nhắc</span>`;
+                if (pot === "Đáng theo đuổi") potBadge = `<span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-bold">★ Đáng theo đuổi</span>`;
+                if (pot === "Loại") potBadge = `<span class="bg-red-100 text-red-800 text-xs px-2.5 py-1 rounded-full">Loại</span>`;
+
+                const st = c.trang_thai_theo_doi || "Mới research";
+                tr.innerHTML = `
+                    <td class="px-6 py-4">
+                        <div class="font-bold text-gray-900">${c.ai_data?.ten_cong_ty || 'N/A'}</div>
+                        <div class="text-xs text-gray-400 font-mono">MST: ${c.ai_data?.ma_so_thue || 'N/A'}</div>
+                    </td>
+                    <td class="px-6 py-4 text-gray-600">${c.ai_data?.nganh_nghe_chinh || 'Chưa rõ'}</td>
+                    <td class="px-6 py-4">${potBadge}</td>
+                    <td class="px-6 py-4"><span class="text-xs bg-slate-100 px-2 py-0.5 rounded border border-gray-200">${st}</span></td>
+                    <td class="px-6 py-4 text-right text-xs space-x-2">
+                        <button class="text-base-primary hover:underline font-semibold">Xem & Edit</button>
+                        <button onclick="deleteCompany('${c.id}', event)" class="text-red-500 hover:underline">Xóa</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function createKanbanCard(c) {
+            const card = document.createElement('div');
+            card.className = "bg-white p-3 rounded-lg border border-gray-200 shadow-xs hover:shadow-md transition-all cursor-pointer relative";
+            card.onclick = () => openDetailModal(c, false);
+
+            const pot = c.ai_data?.muc_do_tiem_nang;
+            let potDot = `<span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>`;
+            if(pot === "Đáng theo đuổi") potDot = `<span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>`;
+            if(pot === "Loại") potDot = `<span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>`;
+
+            card.innerHTML = `
+                <div class="font-bold text-gray-900 text-xs leading-tight mb-1">${c.ai_data?.ten_cong_ty || 'N/A'}</div>
+                <div class="text-[11px] text-gray-500 truncate mb-2">${c.ai_data?.nganh_nghe_chinh || 'Chưa rõ ngành'}</div>
+                <div class="flex justify-between items-center text-[10px] text-gray-400 pt-2 border-t border-gray-100">
+                    <span class="flex items-center gap-1">${potDot} ${pot || 'Cân nhắc'}</span>
+                    <button onclick="deleteCompany('${c.id}', event)" class="text-gray-300 hover:text-red-500 text-xs">Xóa</button>
+                </div>
+            `;
+            return card;
+        }
+
+        function renderPipelineMode(items) {
+            const columns = {
+                'Mới research': { box: document.getElementById('col-new'), count: document.getElementById('count-new'), data: [] },
+                'Đang tiếp cận': { box: document.getElementById('col-progress'), count: document.getElementById('count-progress'), data: [] },
+                'Đã liên hệ': { box: document.getElementById('col-contacted'), count: document.getElementById('count-contacted'), data: [] },
+                'Đáng theo đuổi': { box: document.getElementById('col-qualified'), count: document.getElementById('count-qualified'), data: [] },
+                'Loại': { box: document.getElementById('col-disqualified'), count: document.getElementById('count-disqualified'), data: [] }
+            };
+
+            Object.values(columns).forEach(c => { if(c.box) c.box.innerHTML = ''; if(c.count) c.count.innerText = '0'; });
+
+            items.forEach(c => {
+                let status = c.trang_thai_theo_doi || 'Mới research';
+                if (!columns[status]) status = 'Mới research';
+                columns[status].data.push(c);
+            });
+
+            Object.keys(columns).forEach(key => {
+                const col = columns[key];
+                if(col.count) col.count.innerText = col.data.length;
+                if(col.data.length === 0) {
+                    if(col.box) col.box.innerHTML = `<div class="text-center py-6 text-gray-300 text-xs border border-dashed border-gray-200 rounded-lg">Trống</div>`;
+                } else {
+                    col.data.forEach(item => {
+                        if(col.box) col.box.appendChild(createKanbanCard(item));
+                    });
+                }
+            });
+        }
+    </script>
+</body>
+</html>

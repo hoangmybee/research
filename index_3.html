@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Base E-Office - B2B Pipeline Sales Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background-color: #f8fafc;
+        }
+        .bg-base-primary { background-color: #1B6E45; }
+        .text-base-primary { color: #1B6E45; }
+        .border-base-primary { border-color: #1B6E45; }
+        .hover\:bg-base-dark:hover { background-color: #145333; }
+        
+        .pipeline-tab-active {
+            border-bottom: 3px solid #1B6E45;
+            color: #1B6E45;
+            font-weight: 700;
+        }
+        .tab-active {
+            border-bottom: 2px solid #1B6E45;
+            color: #1B6E45;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased">
+
+    <header class="bg-base-primary text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div>
+                    <h1 class="text-lg font-bold leading-tight">Danh sách khách hàng tiềm năng</h1>
+                    <p class="text-xs text-green-200">Hệ thống Quản lý & Bám sát Khách hàng Doanh nghiệp cho Sales</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="toggleSettingsModal()" class="bg-emerald-800 hover:bg-emerald-900 px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-700 flex items-center gap-1 cursor-pointer transition-all">
+                    ⚙️ Cài đặt API Key
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        
+        <div class="bg-white rounded-xl shadow-xs border border-gray-200 p-2 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex border-b border-gray-100 w-full sm:w-auto overflow-x-auto">
+                <button onclick="switchPipeline('research_pool')" id="pipe-research_pool" class="pipeline-tab-active py-3 px-6 font-medium text-sm text-gray-500 hover:text-base-primary whitespace-nowrap border-b-2 border-transparent focus:outline-none transition-all flex items-center gap-2">
+                    🔍 1. Research & Sàng lọc <span id="count-research" class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-bold">0</span>
+                </button>
+                <button onclick="switchPipeline('potential_pool')" id="pipe-potential_pool" class="py-3 px-6 font-medium text-sm text-gray-500 hover:text-base-primary whitespace-nowrap border-b-2 border-transparent focus:outline-none transition-all flex items-center gap-2">
+                    🌟 2. Pool Tiềm năng & To-Do <span id="count-potential" class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-bold">0</span>
+                </button>
+                <button onclick="switchPipeline('contacted_pool')" id="pipe-contacted_pool" class="py-3 px-6 font-medium text-sm text-gray-500 hover:text-base-primary whitespace-nowrap border-b-2 border-transparent focus:outline-none transition-all flex items-center gap-2">
+                    🚀 3. Đang Tiếp cận / Chăm sóc <span id="count-contacted" class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold">0</span>
+                </button>
+            </div>
+            
+            <button onclick="openResearchModal()" class="w-full sm:w-auto bg-base-primary text-white font-medium text-sm px-4 py-2.5 rounded-lg hover:bg-base-dark flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs">
+                <span>+ Research đối tượng mới</span>
+            </button>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl shadow-xs border border-gray-100 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <div class="relative flex-1 min-w-[240px]">
+                    <input type="text" id="searchBar" placeholder="Tìm kiếm nhanh doanh nghiệp..." class="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-base-primary" oninput="renderTable()">
+                </div>
+                <select id="filterPotential" class="border border-gray-300 rounded-lg text-sm p-2 focus:outline-none focus:border-base-primary" onchange="renderTable()">
+                    <option value="">-- Mức độ tiềm năng --</option>
+                    <option value="Đáng theo đuổi">Đáng theo đuổi</option>
+                    <option value="Cân nhắc">Cân nhắc</option>
+                    <option value="Thấp">Thấp</option>
+                    <option value="Loại">Loại</option>
+                </select>
+            </div>
+            
+            <div class="flex items-center gap-2 w-full md:w-auto justify-end flex-wrap">
+                <label class="bg-white border border-gray-300 text-gray-700 text-xs font-medium px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer flex items-center gap-1">
+                    📥 Nhập File (CSV)
+                    <input type="file" id="importExcelInput" accept=".csv" class="hidden" onchange="importCSV(event)">
+                </label>
+                <button onclick="exportCSV()" class="bg-white border border-gray-300 text-gray-700 text-xs font-medium px-3 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-1 cursor-pointer">
+                    📤 Xuất File (CSV)
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-xs border border-gray-100 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-500 text-xs font-semibold uppercase tracking-wider border-b border-gray-200">
+                            <th class="px-6 py-3.5">Doanh nghiệp</th>
+                            <th class="px-6 py-3.5">Ngành nghề chính</th>
+                            <th class="px-6 py-3.5">Phán quyết AI</th>
+                            <th class="px-6 py-3.5">Trạng thái Pipeline</th>
+                            <th class="px-6 py-3.5 text-right">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="companyTableBody" class="divide-y divide-gray-100 text-sm"></tbody>
+                </table>
+            </div>
+            <div id="emptyState" class="hidden p-12 text-center text-gray-400 text-sm">
+                Không tìm thấy dữ liệu khách hàng nào ở bước pipeline này. Hãy nhấn nút để thêm hoặc Import dữ liệu!
+            </div>
+        </div>
+    </main>
+
+    <div id="settingsModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl relative animate-in fade-in zoom-in-95 duration-150">
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Cấu hình hệ thống</h3>
+            <p class="text-xs text-gray-500 mb-4">API Key sẽ được lưu trữ an toàn, cục bộ ngay trên trình duyệt máy tính của bạn.</p>
+            <div class="space-y-4">
+                <div class="bg-slate-50 p-3 rounded-lg border border-gray-200">
+                    <label for="apiKeyInput" class="block text-xs font-semibold text-gray-700 uppercase mb-1">Gemini API Key:</label>
+                    <div class="flex gap-2">
+                        <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="bg-white border border-gray-300 text-gray-900 text-sm rounded-md px-3 py-2 w-full focus:outline-none focus:border-base-primary" onchange="saveApiKey()">
+                        <button onclick="toggleKeyVisibility()" class="text-xs bg-gray-200 hover:bg-gray-300 px-3 rounded-md text-gray-700 font-medium shrink-0">Hiện/Ẩn</button>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button onclick="toggleSettingsModal()" class="px-5 py-2 text-sm bg-base-primary text-white font-medium rounded-md hover:bg-base-dark cursor-pointer shadow-xs">Hoàn thành</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="researchModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl relative animate-in fade-in zoom-in-95 duration-150">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Research Đối Tượng Khách Hàng Mới</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Tên công ty <span class="text-red-500">*</span></label>
+                    <input type="text" id="inputCompName" placeholder="Ví dụ: Tập đoàn Hòa Phát, Công ty Nam Phương V.N..." class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:border-base-primary text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Mã số thuế (Khuyên dùng để AI tra chuẩn hơn)</label>
+                    <input type="text" id="inputCompTax" placeholder="Ví dụ: 0101532432" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:border-base-primary text-sm">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="closeResearchModal()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md cursor-pointer">Hủy</button>
+                <button onclick="startResearch()" class="px-4 py-2 text-sm bg-base-primary text-white font-medium rounded-md hover:bg-base-dark cursor-pointer shadow-xs">Bắt đầu Phân Tích</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingModal" class="fixed inset-0 bg-black/60 z-50 flex flex-col items-center justify-center hidden p-4 text-white">
+        <div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
+        <h3 class="text-lg font-bold" id="loadingTitle">Gemini AI đang quét dữ liệu thị trường...</h3>
+        <p class="text-xs text-gray-300 mt-2 max-w-sm text-center">Hệ thống đang bật Google Search thời gian thực để quét dữ liệu pháp lý, tuyển dụng, tin tức dự án và dấu hiệu phần mềm của doanh nghiệp.</p>
+    </div>
+
+    <div id="detailModal" class="fixed inset-0 bg-black/50 z-50 flex justify-end hidden">
+        <div class="bg-white w-full max-w-4xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+            
+            <div class="p-4 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
+                <div id="modalHeaderProfileBlock" class="flex items-center gap-3">
+                     </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <div class="flex items-center gap-1.5 text-xs">
+                        <span class="font-medium text-gray-600">Pipeline:</span>
+                        <select id="detailStatusSelect" class="border border-gray-300 rounded p-1 text-xs bg-white font-semibold text-gray-700" onchange="updateCurrentCompanyStatus(this.value)">
+                            <option value="Mới research">1. Mới research</option>
+                            <option value="Đáng theo đuổi">2. Đáng theo đuổi (Tiềm năng)</option>
+                            <option value="Đang tiếp cận">3. Đang tiếp cận</option>
+                            <option value="Đã liên hệ">3. Đã liên hệ</option>
+                            <option value="Loại">❌ Loại bỏ</option>
+                        </select>
+                    </div>
+                    <button id="saveBtn" onclick="saveCurrentCompany()" class="bg-base-primary text-white text-xs font-semibold px-3 py-1.5 rounded hover:bg-base-dark cursor-pointer transition-all">Lưu vào máy</button>
+                    <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 p-1.5 text-xl cursor-pointer">&times;</button>
+                </div>
+            </div>
+
+            <div class="flex border-b border-gray-200 bg-white px-4 overflow-x-auto text-xs sm:text-sm shrink-0">
+                <button onclick="switchTab('overview')" id="tab-overview" class="py-3 px-4 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent focus:outline-none whitespace-nowrap">Tổng quan & Phán quyết</button>
+                <button onclick="switchTab('legal')" id="tab-legal" class="py-3 px-4 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent focus:outline-none whitespace-nowrap">Pháp lý & Quy mô</button>
+                <button onclick="switchTab('signals')" id="tab-signals" class="py-3 px-4 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent focus:outline-none whitespace-nowrap">Tín hiệu dự án & Công nghệ</button>
+                <button onclick="switchTab('contacts')" id="tab-contacts" class="py-3 px-4 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent focus:outline-none whitespace-nowrap">Liên hệ & Email Cá nhân</button>
+                <button onclick="switchTab('notes')" id="tab-notes" class="py-3 px-4 text-gray-500 hover:text-base-primary font-medium border-b-2 border-transparent focus:outline-none whitespace-nowrap">Ghi chú & To-Do 🔥</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6 bg-gray-50/50 space-y-6 text-sm" id="tabContentBox">
+                
+                <div id="pane-overview" class="tab-pane space-y-6">
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-2">Tóm tắt chung doanh nghiệp</h4>
+                        <p id="view-tom_tat" class="text-gray-600 leading-relaxed"></p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs flex flex-col justify-between">
+                            <div>
+                                <h4 class="font-bold text-gray-900 mb-1">Mức độ tiềm năng cho E-Office</h4>
+                                <div id="view-tiem_nang_badge" class="my-2"></div>
+                            </div>
+                            <p id="view-ly_do_tiem_nang" class="text-gray-600 text-xs mt-1"></p>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border border-red-100 bg-red-50/20 shadow-xs">
+                            <h4 class="font-bold text-red-800 mb-1 flex items-center gap-1">⚠ Cờ đỏ cảnh báo (Red Flags)</h4>
+                            <p id="view-co_do" class="text-gray-600 text-xs mt-1"></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-3">Góc tiếp cận đề xuất cho Sales Base</h4>
+                        <div id="view-goc_tiep_can" class="space-y-2"></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                            <h4 class="font-bold text-gray-900 mb-1">Persona / Người nên tiếp cận</h4>
+                            <p id="view-nguoi_tiep_can" class="text-gray-600 text-xs"></p>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                            <h4 class="font-bold text-gray-900 mb-1">Hành động tiếp theo (Next action)</h4>
+                            <p id="view-hanh_dong_tiep" class="text-gray-600 text-xs"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="pane-legal" class="tab-pane space-y-4 hidden">
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
+                        <table class="w-full text-left divide-y divide-gray-100">
+                            <tbody class="divide-y divide-gray-100">
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500 w-1/3">Địa chỉ</td><td class="px-4 py-3" id="view-dia_chi"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Đại diện pháp luật</td><td class="px-4 py-3" id="view-dai_dien"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Ngành nghề kinh doanh</td><td class="px-4 py-3" id="view-nganh_nghe"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Loại hình doanh nghiệp</td><td class="px-4 py-3" id="view-loai_hinh"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Ngày thành lập</td><td class="px-4 py-3" id="view-ngay_thanh_lap"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Vốn điều lệ ước tính</td><td class="px-4 py-3" id="view-von_dieu_le"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Tình trạng hoạt động</td><td class="px-4 py-3" id="view-tinh_trang"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Ước tính quy mô nhân sự</td><td class="px-4 py-3" id="view-nhan_su"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Chi nhánh/V văn phòng</td><td class="px-4 py-3" id="view-chi_nhanh"></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="pane-signals" class="tab-pane space-y-4 hidden">
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-2">Tình hình tuyển dụng mở rộng</h4>
+                        <div id="view-tuyen_dung"></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-2">Bài báo kí kết / Khởi động dự án / Vinh danh đối tác CNTT</h4>
+                        <div id="view-tin_tuc"></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-2">Hệ sinh thái ứng dụng / Phần mềm đang vận hành</h4>
+                        <div id="view-phan_mem"></div>
+                    </div>
+                </div>
+
+                <div id="pane-contacts" class="tab-pane space-y-4 hidden">
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-xs overflow-hidden">
+                        <table class="w-full text-left divide-y divide-gray-100">
+                            <tbody>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500 w-1/3">Ban lãnh đạo cấp cao</td><td class="px-4 py-3" id="view-ban_lanh_dao"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Email (Ưu tiên Mail cá nhân công khai theo Domain)</td><td class="px-4 py-3" id="view-email"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Hotline/Tổng đài</td><td class="px-4 py-3" id="view-hotline"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Website chính thức</td><td class="px-4 py-3" id="view-website"></td></tr>
+                                <tr><td class="px-4 py-3 font-semibold text-gray-500">Mạng xã hội (Fanpage/LinkedIn)</td><td class="px-4 py-3" id="view-mxh"></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="pane-notes" class="tab-pane space-y-4 hidden">
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <label class="block font-bold text-gray-900 mb-2">Nhật ký/Ghi chú cá nhân của Sales</label>
+                        <textarea id="localNotes" rows="4" placeholder="Nhập lịch sử cuộc gọi, phản hồi thực tế của khách hàng khi tiếp cận..." class="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-base-primary" oninput="updateLocalNotes(this.value)"></textarea>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-xs">
+                        <h4 class="font-bold text-gray-900 mb-3">Danh sách việc cần làm tác chiến (To-Do)</h4>
+                        <div class="flex gap-2 mb-4">
+                            <input type="text" id="newTodoTask" placeholder="Nội dung công việc (ví dụ: Gọi demo phần mềm Wework cho COO)..." class="flex-1 p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-base-primary">
+                            <input type="date" id="newTodoDate" class="p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-base-primary">
+                            <button onclick="addTodoItem()" class="bg-base-primary text-white text-xs font-semibold px-4 py-2 rounded-md hover:bg-base-dark cursor-pointer">Thêm</button>
+                        </div>
+                        <ul id="todoList" class="divide-y divide-gray-100 space-y-2"></ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let savedCompanies = JSON.parse(localStorage.getItem('base_market_intel_companies')) || [];
+        let currentEditingCompany = null;
+        let currentPipelineTab = 'research_pool';
+
+        window.onload = function() {
+            const savedKey = localStorage.getItem('base_gemini_api_key');
+            if (savedKey) {
+                document.getElementById('apiKeyInput').value = savedKey;
+            }
+            updatePipelineCounts();
+            renderTable();
+        };
+
+        function saveApiKey() {
+            const val = document.getElementById('apiKeyInput').value.trim();
+            localStorage.setItem('base_gemini_api_key', val);
+        }
+        function toggleKeyVisibility() {
+            const input = document.getElementById('apiKeyInput');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+        function toggleSettingsModal() {
+            document.getElementById('settingsModal').classList.toggle('hidden');
+        }
+
+        function switchPipeline(pipelineId) {
+            currentPipelineTab = pipelineId;
+            document.querySelectorAll('[id^="pipe-"]').forEach(el => el.classList.remove('pipeline-tab-active'));
+            document.getElementById(`pipe-${pipelineId}`).classList.add('pipeline-tab-active');
+            renderTable();
+        }
+
+        function updatePipelineCounts() {
+            let researchCount = 0;
+            let potentialCount = 0;
+            let contactedCount = 0;
+
+            savedCompanies.forEach(c => {
+                const status = c.trang_thai_theo_doi || "Mới research";
+                if (status === "Mới research" || status === "Loại") researchCount++;
+                else if (status === "Đáng theo đuổi") potentialCount++;
+                else if (status === "Đang tiếp cận" || status === "Đã liên hệ") contactedCount++;
+            });
+
+            document.getElementById('count-research').innerText = researchCount;
+            document.getElementById('count-potential').innerText = potentialCount;
+            document.getElementById('count-contacted').innerText = contactedCount;
+        }
+
+        function openResearchModal() {
+            document.getElementById('inputCompName').value = '';
+            document.getElementById('inputCompTax').value = '';
+            document.getElementById('researchModal').classList.remove('hidden');
+        }
+        function closeResearchModal() {
+            document.getElementById('researchModal').classList.add('hidden');
+        }
+
+        async function startResearch() {
+            const apiKey = localStorage.getItem('base_gemini_api_key');
+            if (!apiKey) {
+                alert('Vui lòng cấu hình nhập API Key trước ở mục góc trên bên phải!');
+                toggleSettingsModal();
+                closeResearchModal();
+                return;
+            }
+
+            const compName = document.getElementById('inputCompName').value.trim();
+            const compTax = document.getElementById('inputCompTax').value.trim();
+
+            if (!compName) {
+                alert('Tên doanh nghiệp không được bỏ trống!');
+                return;
+            }
+
+            closeResearchModal();
+            showLoading(true, `Hệ thống đang chạy cào quét dữ liệu cho: ${compName}...`);
+
+            // PROMPT NÂNG CẤP CHUYÊN SÂU: CHỐNG YOUTUBE, QUÉT MAIL DOMAIN, QUÉT BÀI BÁO CÔNG NGHỆ & TÊN MIỀN LOGO
+            const prompt = `Bạn là AI siêu phân tích thị trường B2B chuyên sâu, phục vụ thám báo kinh doanh cho Base.vn (Nền tảng quản trị doanh nghiệp).
+            Hãy dùng công cụ Google Search tra cứu thông tin thật chính xác về doanh nghiệp sau:
+            - Tên doanh nghiệp: ${compName}
+            - Mã số thuế (nếu có): ${compTax}
+
+            DANH MỤC SẢN PHẨM BASE (Dùng đúng tên khi gợi ý tiếp cận):
+            1. Intelligent Workspace (E-Office): Wework, Service, Office, Inside, Booking, Meeting.
+            2. Employee Happiness (HRM+): HRM, C&B, Asset, Goal, Hiring.
+            3. CRM: Quản lý khách hàng & Quy trình bán hàng.
+
+            QUY TẮC TRA CỨU VÀ CÀO DỮ LIỆU BẮT BUỘC (CHỐNG LỖI):
+            1. KHÔNG LẤY NGUỒN YOUTUBE/TIKTOK: Tuyệt đối không đưa link youtube.com, watch?v=, tiktok.com vào trường "nguon". Hãy lấy nguồn từ: masothue, dangkynhankhuan, cafef, vietnambiz, các báo lớn, trang tuyển dụng (TopCV, Careerbuilder, Vieclam24h), website công ty hoặc LinkedIn.
+            2. TRA CỨU EMAIL CHUYÊN SÂU (DOMAIN EMAIL): Chủ động quét tìm các email có cấu trúc đuôi dạng "@domain_cong_ty" công khai (ví dụ như email tuyển dụng, thu mua, phòng kinh doanh, liên hệ ban giám đốc). Không chỉ lấy mỗi email Gmail cá nhân nếu có email doanh nghiệp.
+            3. QUÉT TÍN HIỆU CÔNG NGHỆ & BÀI BÁO DỰ ÁN: Hãy tra cứu tên công ty kết hợp từ khóa như ["chuyển đổi số", "khởi động dự án", "vận hành phần mềm", "ERP", "CRM", "SAP", "Misa", "Bravo", "ký kết", "go-live"]. Tìm xem họ có xuất hiện trong danh sách khách hàng/đối tác thành công của hãng công nghệ nào khác không.
+            4. XÁC ĐỊNH CHUẨN TÊN MIỀN (DOMAIN LOGO): Tìm chính xác tên miền website chính thống của họ (Ví dụ: namphuongfood.vn hoặc barona.vn) để trả về ở trường "website_domain_chinh" độc lập (không có https://, không chứa dấu gạch chéo /).
+
+            Mọi trường thông tin mềm phải đi kèm một Object gồm "gia_tri", "do_tin" ("Cao", "Trung bình", "Thấp", "Không tìm thấy") và "nguon" (URL dẫn chứng thật).
+
+            Dữ liệu xuất ra PHẢI LÀ MỘT KHỐI JSON DUY NHẤT, KHÔNG CÓ BẤT KỲ CHỮ NÀO KHÁC NGOÀI KHỐI JSON. Cấu trúc JSON:
+            {
+              "ten_cong_ty": "Tên chuẩn pháp lý",
+              "ma_so_thue": "Mã số thuế",
+              "website_domain_chinh": "Chỉ điền domain chính dạng: tenmien.com hoặc tenmien.vn. Nếu không tìm thấy để rỗng.",
+              "nganh_nghe_chinh": "Ngành hoạt động chính của họ",
+              "tom_tat": "Tóm tắt ngắn gọn 3-4 câu về mô hình kinh doanh, vị thế",
+              "muc_do_tiem_nang": "Chọn 1 trong 4 nhãn: 'Đáng theo đuổi' | 'Cân nhắc' | 'Thấp' | 'Loại'",
+              "ly_do_tiem_nang": "Giải thích chi tiết lý do dựa trên quy mô và bài toán vận hành",
+              "co_do": "Cờ đỏ cảnh báo pháp lý, dính phốt nợ lương, hoặc quy mô ảo...",
+              "goc_tiep_can": ["Góc tiếp cận 1 + đích danh sản phẩm Base", "Góc tiếp cận 2", "Góc tiếp cận 3"],
+              "nguoi_nen_tiep_can": "Chức vụ cụ thể và tên nếu có (CEO, COO, HRD, CCO)",
+              "hanh_dong_tiep_theo": "Hành động cụ thể cho Sales Base",
+              "phap_ly_quy_mo": {
+                "dia_chi": {"gia_tri": "...", "do_tin": "...", "nguon": "..."},
+                "dai_dien_phap_luat": {"gia_tri": "...", "do_tin": "...", "nguon": "..."},
+                "loai_hinh_doanh_nghiep": {"gia_tri": "...", "do_tin": "...", "nguon": "..."},
+                "ngay_thanh_lap": {"gia_tri": "...", "do_tin": "...", "nguon": "..."},
+                "von_dieu_le": {"gia_tri": "...", "do_tin": "...", "nguon": "..."},
+                "tinh_trang_hoat_dong": {"gia_tri": "...", "do_tin": "...", "nguon": "..."},
+                "uoc_tinh_nhan_su": {"gia_tri": "...", "do_tin": "...", "nguon": "..."},
+                "so_chi_nhanh_van_phong": {"gia_tri": "...", "do_tin": "...", "nguon": "..."}
+              },
+              "tin_hieu_cong_nghe": {
+                "tuyen_dung": {"gia_tri": "...", "do_tin": "...", "nguon": "..."},
+                "tin_tuc_gan_day": {"gia_tri": "Tìm kiếm các bài báo về dự án CNTT đã ký kết/khởi động chuyển đổi số của họ.", "do_tin": "...", "nguon": "..."},
+                "phan_mem_dang_dung": {"gia_tri": "Các hệ thống phần mềm cũ đang chạy hoặc bằng chứng thủ công.", "do_tin": "...", "nguon": "..."}
+              },
+              "lien_he": {
+                "ban_lanh_dao": {"gia_tri": "...", "do_tin": "...", "nguon": "..."},
+                "email_to_chuc": {"gia_tri": "Danh sách email cá nhân/phòng ban tìm được có đuôi tên miền công ty công khai", "do_tin": "...", "nguon": "..."},
+                "hotline": {"gia_tri": "...", "do_tin": "...", "nguon": "..."},
+                "website": {"gia_tri": "...", "do_tin": "...", "nguon": "..."},
+                "mang_xa_hoi": {"gia_tri": "...", "do_tin": "...", "nguon": "..."}
+              }
+            }`;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        tools: [{ google_search: {} }]
+                    })
+                });
+
+                if (!response.ok) throw new Error(`Lỗi kết nối API: ${response.status}`);
+
+                const resultData = await response.json();
+                let rawText = resultData?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!rawText) throw new Error("Mô hình bận hoặc không trả về văn bản phù hợp.");
+
+                rawText = rawText.trim();
+                if (rawText.startsWith("```json")) rawText = rawText.substring(7);
+                else if (rawText.startsWith("```")) rawText = rawText.substring(3);
+                if (rawText.endsWith("```")) rawText = rawText.substring(0, rawText.length - 3);
+                rawText = rawText.trim();
+
+                let parsedResult = JSON.parse(rawText);
+
+                currentEditingCompany = {
+                    id: 'comp_' + Date.now(),
+                    trang_thai_theo_doi: "Mới research",
+                    ghi_chu_sales: "",
+                    todo_list: [],
+                    ai_data: parsedResult
+                };
+
+                showLoading(false);
+                openDetailModal(currentEditingCompany, true);
+
+            } catch (err) {
+                showLoading(false);
+                alert("Đã xảy ra sự cố lỗi kết nối hoặc phân tích JSON:\n" + err.message);
+            }
+        }
+
+        function showLoading(status, msg = "") {
+            const modal = document.getElementById('loadingModal');
+            if (status) {
+                document.getElementById('loadingTitle').innerText = msg;
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.remove('tab-active'));
+            document.getElementById(`pane-${tabId}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabId}`).classList.add('tab-active');
+        }
+
+        function formatField(obj) {
+            if (!obj || obj.gia_tri === "khong_tim_thay" || !obj.gia_tri) {
+                return `<span class="text-gray-400 italic">Không tìm thấy</span>`;
+            }
+            let badgeColor = "bg-gray-100 text-gray-600";
+            if (obj.do_tin === "Cao") badgeColor = "bg-green-100 text-green-700";
+            if (obj.do_tin === "Trung bình") badgeColor = "bg-amber-100 text-amber-700";
+            if (obj.do_tin === "Thấp") badgeColor = "bg-red-100 text-red-700";
+
+            let sourceHtml = "";
+            if (obj.nguon && obj.nguon.trim() !== "" && !obj.nguon.includes("youtube.com") && !obj.nguon.includes("youtu.be")) {
+                sourceHtml = `<a href="${obj.nguon}" target="_blank" class="ml-2 text-xs text-blue-600 hover:underline inline-flex items-center gap-0.5">🔗 nguồn nguồn</a>`;
+            }
+
+            return `
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span class="text-gray-800 font-medium break-words">${obj.gia_tri}</span>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded ${badgeColor}">Tin cậy: ${obj.do_tin || 'Thấp'}</span>
+                        ${sourceHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        function openDetailModal(companyObj, isNewResearch = false) {
+            currentEditingCompany = JSON.parse(JSON.stringify(companyObj));
+            const data = currentEditingCompany.ai_data;
+
+            // Header chi tiết: tên + MST + ngành
+            document.getElementById('modalHeaderProfileBlock').innerHTML = `
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h2 id="detailCompName" class="text-xl font-bold text-gray-900">${data.ten_cong_ty || "Không rõ tên"}</h2>
+                        <span id="detailCompTax" class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono">MST: ${data.ma_so_thue || 'Trống'}</span>
+                    </div>
+                    <p id="detailCompIndustry" class="text-xs text-gray-500 mt-0.5">Ngành hoạt động chính: ${data.nganh_nghe_chinh || 'Chưa cập nhật'}</p>
+                </div>
+            `;
+
+            document.getElementById('detailStatusSelect').value = currentEditingCompany.trang_thai_theo_doi;
+
+            const saveBtn = document.getElementById('saveBtn');
+            if (isNewResearch) {
+                saveBtn.innerText = "Lưu & Phân bổ Pipeline";
+                saveBtn.className = "bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded hover:bg-amber-700 cursor-pointer";
+            } else {
+                saveBtn.innerText = "Cập nhật thay đổi";
+                saveBtn.className = "bg-base-primary text-white text-xs font-semibold px-3 py-1.5 rounded hover:bg-base-dark cursor-pointer";
+            }
+
+            document.getElementById('view-tom_tat').innerText = data.tom_tat || "Không có tóm tắt.";
+            const pot = data.muc_do_tiem_nang;
+            let potColor = "bg-gray-100 text-gray-700";
+            if (pot === "Đáng theo đuổi") potColor = "bg-emerald-600 text-white font-bold";
+            if (pot === "Cân nhắc") potColor = "bg-blue-600 text-white font-medium";
+            if (pot === "Thấp") potColor = "bg-amber-500 text-white";
+            if (pot === "Loại") potColor = "bg-red-600 text-white";
+            document.getElementById('view-tiem_nang_badge').innerHTML = `<span class="px-3 py-1 rounded text-xs tracking-wide ${potColor}">${pot || 'Chưa phân loại'}</span>`;
+            document.getElementById('view-ly_do_tiem_nang').innerText = data.ly_do_tiem_nang || "Không có lý do.";
+            document.getElementById('view-co_do').innerText = data.co_do || "Không phát hiện tín hiệu xấu.";
+
+            const gocBox = document.getElementById('view-goc_tiep_can');
+            gocBox.innerHTML = '';
+            if (Array.isArray(data.goc_tiep_can)) {
+                data.goc_tiep_can.forEach(goc => {
+                    const div = document.createElement('div');
+                    div.className = "p-2 bg-slate-50 rounded border-l-4 border-emerald-600 text-xs text-gray-700";
+                    div.innerText = goc;
+                    gocBox.appendChild(div);
+                });
+            } else {
+                gocBox.innerHTML = `<span class="text-gray-400 italic">Không có đề xuất tiếp cận.</span>`;
+            }
+
+            document.getElementById('view-nguoi_tiep_can').innerText = data.nguoi_nen_tiep_can || "Chưa rõ.";
+            document.getElementById('view-hanh_dong_tiep').innerText = data.hanh_dong_tiep_theo || "Chưa có hành động tiếp theo.";
+
+            document.getElementById('view-dia_chi').innerHTML = formatField(data.phap_ly_quy_mo?.dia_chi);
+            document.getElementById('view-generic-name-field-1').innerHTML = formatField(data.phap_ly_quy_mo?.dai_dien_phap_luat);
+            document.getElementById('view-nganh_nghe').innerHTML = formatField({gia_tri: data.nganh_nghe_chinh, do_tin: "Cao"});
+            document.getElementById('view-loai_hinh').innerHTML = formatField(data.phap_ly_quy_mo?.loai_hinh_doanh_nghiep);
+            document.getElementById('view-ngay_thanh_lap').innerHTML = formatField(data.phap_ly_quy_mo?.ngay_thanh_lap);
+            document.getElementById('view-von_dieu_le').innerHTML = formatField(data.phap_ly_quy_mo?.von_dieu_le);
+            document.getElementById('view-tinh_trang').innerHTML = formatField(data.phap_ly_quy_mo?.tinh_trang_hoat_dong);
+            document.getElementById('view-nhan_su').innerHTML = formatField(data.phap_ly_quy_mo?.uoc_tinh_nhan_su);
+            document.getElementById('view-chi_nhanh').innerHTML = formatField(data.phap_ly_quy_mo?.so_chi_nhanh_van_phong);
+
+            document.getElementById('view-tuyen_dung').innerHTML = formatField(data.tin_hieu_cong_nghe?.tuyen_dung);
+            document.getElementById('view-tin_tuc').innerHTML = formatField(data.tin_hieu_cong_nghe?.tin_tuc_gan_day);
+            document.getElementById('view-phan_mem').innerHTML = formatField(data.tin_hieu_cong_nghe?.phan_mem_dang_dung);
+
+            document.getElementById('view-ban_lanh_dao').innerHTML = formatField(data.lien_he?.ban_lanh_dao);
+            document.getElementById('view-email').innerHTML = formatField(data.lien_he?.email_to_chuc);
+            document.getElementById('view-hotline').innerHTML = formatField(data.lien_he?.hotline);
+            document.getElementById('view-website').innerHTML = formatField(data.lien_he?.website);
+            document.getElementById('view-mxh').innerHTML = formatField(data.lien_he?.mang_xa_hoi);
+
+            document.getElementById('localNotes').value = currentEditingCompany.ghi_chu_sales || "";
+            renderTodoList();
+
+            switchTab('overview');
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        // Bản đồ ánh xạ phần ID bị ghi sai tên trong HTML cũ
+        const originalMapping = {
+            get 'view-dai_dien'() { return document.getElementById('view-generic-name-field-1'); }
+        };
+
+        function closeDetailModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+            currentEditingCompany = null;
+        }
+
+        function saveCurrentCompany() {
+            if (!currentEditingCompany) return;
+
+            const idx = savedCompanies.findIndex(c => c.id === currentEditingCompany.id);
+            if (idx > -1) {
+                savedCompanies[idx] = currentEditingCompany;
+            } else {
+                savedCompanies.unshift(currentEditingCompany);
+            }
+
+            localStorage.setItem('base_market_intel_companies', JSON.stringify(savedCompanies));
+            updatePipelineCounts();
+            renderTable();
+            closeDetailModal();
+        }
+
+        function updateCurrentCompanyStatus(statusValue) {
+            if (currentEditingCompany) {
+                currentEditingCompany.trang_thai_theo_doi = statusValue;
+            }
+        }
+
+        function updateLocalNotes(text) {
+            if (currentEditingCompany) {
+                currentEditingCompany.ghi_chu_sales = text;
+            }
+        }
+
+        function renderTodoList() {
+            const container = document.getElementById('todoList');
+            container.innerHTML = '';
+            
+            if (!currentEditingCompany.todo_list) currentEditingCompany.todo_list = [];
+
+            if (currentEditingCompany.todo_list.length === 0) {
+                container.innerHTML = `<li class="text-gray-400 italic text-xs py-1">Chưa có nhiệm vụ tác chiến nào được tạo.</li>`;
+                return;
+            }
+
+            currentEditingCompany.todo_list.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.className = "flex justify-between items-center bg-gray-50 p-2 rounded text-xs";
+                li.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggleTodoStatus(${index})" class="rounded text-base-primary">
+                        <span class="${item.done ? 'line-through text-gray-400' : 'text-gray-700 font-medium'}">${item.task}</span>
+                        ${item.date ? `<span class="text-[10px] text-gray-400 bg-gray-200 px-1 rounded">📅 ${item.date}</span>` : ''}
+                    </div>
+                    <button onclick="deleteTodoItem(${index})" class="text-red-500 hover:text-red-700 font-bold text-sm cursor-pointer">&times;</button>
+                `;
+                container.appendChild(li);
+            });
+        }
+
+        function addTodoItem() {
+            const taskInput = document.getElementById('newTodoTask');
+            const dateInput = document.getElementById('newTodoDate');
+            const text = taskInput.value.trim();
+            if (!text) return;
+
+            currentEditingCompany.todo_list.push({
+                task: text,
+                date: dateInput.value,
+                done: false
+            });
+            taskInput.value = '';
+            dateInput.value = '';
+            renderTodoList();
+        }
+
+        function toggleTodoStatus(index) {
+            currentEditingCompany.todo_list[index].done = !currentEditingCompany.todo_list[index].done;
+            renderTodoList();
+        }
+
+        function deleteTodoItem(index) {
+            currentEditingCompany.todo_list.splice(index, 1);
+            renderTodoList();
+        }
+
+        function deleteCompany(id, event) {
+            event.stopPropagation();
+            if (confirm("Xóa khách hàng này khỏi cơ sở dữ liệu?")) {
+                savedCompanies = savedCompanies.filter(c => c.id !== id);
+                localStorage.setItem('base_market_intel_companies', JSON.stringify(savedCompanies));
+                updatePipelineCounts();
+                renderTable();
+            }
+        }
+
+        function importCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n');
+                let importCount = 0;
+
+                for(let i = 1; i < lines.length; i++) {
+                    const row = lines[i].trim();
+                    if (!row) continue;
+
+                    const cols = row.split(',');
+                    if(cols.length < 3) continue;
+
+                    const compName = cols[0]?.replace(/^"|"$/g, '');
+                    const compTax = cols[1]?.replace(/^"|"$/g, '');
+                    const industry = cols[2]?.replace(/^"|"$/g, '');
+                    const potential = cols[3]?.replace(/^"|"$/g, '') || "Cân nhắc";
+                    const pipeStatus = cols[4]?.replace(/^"|"$/g, '') || "Mới research";
+                    const notes = cols[5]?.replace(/^"|"$/g, '') || "";
+                    const domain = cols[9]?.replace(/^"|"$/g, '') || "";
+
+                    const newCompany = {
+                        id: 'comp_' + (Date.now() + i),
+                        trang_thai_theo_doi: pipeStatus,
+                        ghi_chu_sales: notes,
+                        todo_list: [],
+                        ai_data: {
+                            ten_cong_ty: compName,
+                            ma_so_thue: compTax,
+                            website_domain_chinh: domain,
+                            nganh_nghe_chinh: industry,
+                            muc_do_tiem_nang: potential,
+                            tom_tat: "Nhập thủ công bằng file Excel/CSV.",
+                            goc_tiep_can: ["Chưa có phân tích sâu chuyên sâu từ AI."],
+                            phap_ly_quy_mo: { dia_chi: { gia_tri: cols[6] || "" } },
+                            lien_he: { hotline: { gia_tri: cols[7] || "" }, email_to_chuc: { gia_tri: cols[8] || "" } }
+                        }
+                    };
+
+                    savedCompanies.push(newCompany);
+                    importCount++;
+                }
+
+                localStorage.setItem('base_market_intel_companies', JSON.stringify(savedCompanies));
+                alert(`Đã nhập thành công ${importCount} khách hàng doanh nghiệp!`);
+                updatePipelineCounts();
+                renderTable();
+                document.getElementById('importExcelInput').value = '';
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function exportCSV() {
+            if (savedCompanies.length === 0) {
+                alert("Hệ thống chưa có dữ liệu nào để xuất tệp!");
+                return;
+            }
+
+            let csvContent = "\uFEFF"; 
+            csvContent += "Tên Công Ty,Mã Số Thuế,Ngành Nghề,Mức Độ Tiềm Năng,Trạng Thái Pipeline,Ghi Chú Sales,Địa Chỉ,Hotline,Email,Domain Chính\n";
+
+            savedCompanies.forEach(c => {
+                const name = `"${(c.ai_data?.ten_cong_ty || '').replace(/"/g, '""')}"`;
+                const tax = `"${c.ai_data?.ma_so_thue || ''}"`;
+                const ind = `"${c.ai_data?.nganh_nghe_chinh || ''}"`;
+                const pot = `"${c.ai_data?.muc_do_tiem_nang || ''}"`;
+                const status = `"${c.trang_thai_theo_doi || 'Mới research'}"`;
+                const notes = `"${(c.ghi_chu_sales || '').replace(/"/g, '""')}"`;
+                const address = `"${(c.ai_data?.phap_ly_quy_mo?.dia_chi?.gia_tri || '').replace(/"/g, '""')}"`;
+                const phone = `"${c.ai_data?.lien_he?.hotline?.gia_tri || ''}"`;
+                const email = `"${c.ai_data?.lien_he?.email_to_chuc?.gia_tri || ''}"`;
+                const dom = `"${c.ai_data?.website_domain_chinh || ''}"`;
+
+                csvContent += `${name},${tax},${ind},${pot},${status},${notes},${address},${phone},${email},${dom}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Base_Sales_Pipeline_${Date.now()}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('companyTableBody');
+            const emptyState = document.getElementById('emptyState');
+            tbody.innerHTML = '';
+
+            const searchVal = document.getElementById('searchBar').value.toLowerCase().trim();
+            const potFilter = document.getElementById('filterPotential').value;
+
+            const filtered = savedCompanies.filter(c => {
+                const currentStatus = c.trang_thai_theo_doi || "Mới research";
+                let belongsToTab = false;
+
+                if (currentPipelineTab === 'research_pool') {
+                    belongsToTab = (currentStatus === "Mới research" || currentStatus === "Loại");
+                } else if (currentPipelineTab === 'potential_pool') {
+                    belongsToTab = (currentStatus === "Đáng theo đuổi");
+                } else if (currentPipelineTab === 'contacted_pool') {
+                    belongsToTab = (currentStatus === "Đang tiếp cận" || currentStatus === "Đã liên hệ");
+                }
+
+                if (!belongsToTab) return false;
+
+                const nameMatch = c.ai_data?.ten_cong_ty?.toLowerCase().includes(searchVal);
+                const industryMatch = c.ai_data?.nganh_nghe_chinh?.toLowerCase().includes(searchVal);
+                const matchesSearch = nameMatch || industryMatch || searchVal === "";
+                const matchesPot = potFilter === "" || c.ai_data?.muc_do_tiem_nang === potFilter;
+
+                return matchesSearch && matchesPot;
+            });
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            filtered.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 cursor-pointer transition-colors";
+                tr.onclick = () => openDetailModal(c, false);
+
+                const pot = c.ai_data?.muc_do_tiem_nang;
+                let potBadge = `<span class="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full font-medium">Chưa rõ</span>`;
+                if (pot === "Đáng theo đuổi") potBadge = `<span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-bold">★ Đáng theo đuổi</span>`;
+                if (pot === "Cân nhắc") potBadge = `<span class="bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-full font-medium">Cân nhắc</span>`;
+                if (pot === "Thấp") potBadge = `<span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full">Thấp</span>`;
+                if (pot === "Loại") potBadge = `<span class="bg-red-100 text-red-800 text-xs px-2.5 py-1 rounded-full">Loại</span>`;
+
+                const status = c.trang_thai_theo_doi || "Mới research";
+                let statusBadge = `<span class="border border-gray-300 text-gray-600 text-xs px-2 py-0.5 rounded bg-gray-50">${status}</span>`;
+                if (status === "Đang tiếp cận") statusBadge = `<span class="border border-blue-500 text-blue-600 text-xs px-2 py-0.5 rounded font-medium bg-blue-50">Đang tiếp cận</span>`;
+                if (status === "Đã liên hệ") statusBadge = `<span class="border border-purple-500 text-purple-600 text-xs px-2 py-0.5 rounded font-medium bg-purple-50">Đã liên hệ</span>`;
+                if (status === "Đáng theo đuổi") statusBadge = `<span class="border border-emerald-600 text-emerald-700 text-xs px-2 py-0.5 rounded font-medium bg-emerald-50">Tiềm năng</span>`;
+                if (status === "Loại") statusBadge = `<span class="border border-red-400 text-red-500 text-xs px-2 py-0.5 rounded bg-red-50">Bỏ qua</span>`;
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4">
+                        <div class="font-bold text-gray-900">${c.ai_data?.ten_cong_ty || 'Không rõ tên'}</div>
+                        <div class="text-xs text-gray-400 mt-0.5 font-mono">MST: ${c.ai_data?.ma_so_thue || 'N/A'}</div>
+                    </td>
+                    <td class="px-6 py-4 text-gray-600">${c.ai_data?.nganh_nghe_chinh || 'Không xác định'}</td>
+                    <td class="px-6 py-4">${potBadge}</td>
+                    <td class="px-6 py-4">${statusBadge}</td>
+                    <td class="px-6 py-4 text-right text-xs space-x-1">
+                        <button class="text-base-primary hover:underline font-semibold p-1">Xem & Edit</button>
+                        <button onclick="deleteCompany('${c.id}', event)" class="text-red-500 hover:text-red-700 font-medium p-1">Xóa</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+    <div class="hidden" id="view-generic-name-field-1"></div>
+</body>
+</html>
